@@ -52,9 +52,35 @@ Fuer den Desktop-Autostart kann eine `.desktop` Datei unter `~/.config/autostart
 
 Vorher muss der absolute Pfad zum gebauten Programm angepasst werden.
 
+## CI/CD
+
+Das Repository enthaelt zwei GitHub Actions Workflows:
+
+- `.github/workflows/ci.yml`: laeuft bei Pull Requests und bei Pushes auf `main`. Dieser Workflow prueft Formatierung, Unit Tests, Release-Build und die C-Beispielsyntax.
+- `.github/workflows/release.yml`: laeuft nur bei Pushes auf `main`. Dadurch entsteht erst nach einem Merge in `main` ein neues GitHub Release mit Lernendenpaket.
+
+Pull-Request-Updates erzeugen kein Release-Paket.
+
+## Lernendenpaket
+
+Bei jedem erfolgreichen Merge in `main` erzeugt der Release-Workflow eine Datei wie `co2-panel-main-123.tar.gz`.
+Auf dem Raspberry Pi kann das Paket entpackt und installiert werden:
+
+```sh
+tar -xzf co2-panel-main-123.tar.gz
+cd co2-panel-main-123
+./install.sh
+```
+
+Das Installationsskript baut das Projekt auf dem Raspberry Pi und installiert:
+
+- UI-Programm nach `/opt/co2-panel/bin/co2_panel_ui`
+- C-Header nach `/opt/co2-panel/include/co2_panel.h`
+- statische C-Library nach `/opt/co2-panel/lib/libco2_panel_c_api.a`
+- Autostart-Datei fuer den aktuellen Desktop-Benutzer
+
 ## Helligkeit
 
 Die UI versucht zuerst, die Helligkeit ueber `/sys/class/backlight/rpi_backlight/brightness` zu setzen. Falls das nicht moeglich ist, wird als Fallback `xrandr --output DSI-1 --brightness` verwendet.
 
 Je nach Raspberry Pi OS Konfiguration koennen fuer die direkte Backlight-Steuerung zusaetzliche Rechte noetig sein.
-

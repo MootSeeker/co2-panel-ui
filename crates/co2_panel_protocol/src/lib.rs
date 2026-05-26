@@ -109,3 +109,55 @@ pub fn encode_line<T: Serialize>(message: &T) -> Result<String, serde_json::Erro
     Ok(line)
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_config_uses_expected_socket_and_limits() {
+        let config = PanelConfig::default();
+
+        assert_eq!(config.socket_path, DEFAULT_SOCKET_PATH);
+        assert!(config.fullscreen);
+        assert_eq!(config.update_interval_ms, 1000);
+        assert_eq!(config.brightness_percent, 80);
+        assert_eq!(config.co2.warn, 800.0);
+        assert_eq!(config.co2.alarm, 1200.0);
+    }
+
+    #[test]
+    fn message_encoding_is_newline_delimited_json() {
+        let message = ClientMessage::SetValue {
+            kind: ValueKind::Co2,
+            value: 901.5,
+        };
+
+        let encoded = encode_line(&message).expect("message should encode");
+
+        assert!(encoded.ends_with('\n'));
+        assert!(encoded.contains(r#""type":"set_value""#));
+        assert!(encoded.contains(r#""kind":"co2""#));
+    }
+
+    #[test]
+    fn event_response_roundtrips_through_json() {
+        let response = ServerMessage::Event {
+            event: Some(PanelEvent {
+                kind: EventKind::BrightnessChanged,
+                value: 75.0,
+            }),
+        };
+
+        let encoded = serde_json::to_string(&response).expect("response should encode");
+        let decoded: ServerMessage =
+            serde_json::from_str(&encoded).expect("response should decode");
+
+        match decoded {
+            ServerMessage::Event { event: Some(event) } => {
+                assert!(matches!(event.kind, EventKind::BrightnessChanged));
+                assert_eq!(event.value, 75.0);
+            }
+            other => panic!("unexpected response: {other:?}"),
+        }
+    }
+}

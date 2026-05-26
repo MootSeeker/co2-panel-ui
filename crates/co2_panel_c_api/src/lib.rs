@@ -7,8 +7,8 @@ use std::ptr;
 use std::time::Duration;
 
 use co2_panel_protocol::{
-    ClientMessage, EventKind, Limits, PanelConfig, PanelEvent, ServerMessage, UnitSystem, ValueKind,
-    DEFAULT_SOCKET_PATH,
+    ClientMessage, EventKind, Limits, PanelConfig, PanelEvent, ServerMessage, UnitSystem,
+    ValueKind, DEFAULT_SOCKET_PATH,
 };
 
 const READ_TIMEOUT_MS: u64 = 200;
@@ -200,15 +200,19 @@ pub extern "C" fn co2_panel_poll_event(
         return Co2PanelStatus::Error;
     }
 
-    with_panel(panel, |panel| match send_message(panel, &ClientMessage::GetEvent) {
-        Ok(ServerMessage::Event { event: Some(read_event) }) => {
-            // SAFETY: Null was checked above, and the caller owns the output location.
-            unsafe { *event = read_event.into() };
-            Co2PanelStatus::Ok
+    with_panel(panel, |panel| {
+        match send_message(panel, &ClientMessage::GetEvent) {
+            Ok(ServerMessage::Event {
+                event: Some(read_event),
+            }) => {
+                // SAFETY: Null was checked above, and the caller owns the output location.
+                unsafe { *event = read_event.into() };
+                Co2PanelStatus::Ok
+            }
+            Ok(ServerMessage::Event { event: None }) => Co2PanelStatus::NoEvent,
+            Ok(response) => set_error(panel, format!("Unexpected response: {response:?}")),
+            Err(error) => set_error(panel, error),
         }
-        Ok(ServerMessage::Event { event: None }) => Co2PanelStatus::NoEvent,
-        Ok(response) => set_error(panel, format!("Unexpected response: {response:?}")),
-        Err(error) => set_error(panel, error),
     })
 }
 
