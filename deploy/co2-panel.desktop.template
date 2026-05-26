@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=CO2 Panel
+Comment=Startet das CO2 Panel im Vollbild
+Exec=/ABSOLUTER/PFAD/ZU/Raspi-Ui/target/release/co2_panel_ui
+Terminal=false
+X-GNOME-Autostart-enabled=true
+

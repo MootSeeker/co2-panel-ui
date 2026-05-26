@@ -1,0 +1,12 @@
+[package]
+name = "co2_panel_ui"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+co2_panel_protocol = { path = "../co2_panel_protocol" }
+eframe = { version = "0.28", default-features = true }
+serde_json = "1"
+

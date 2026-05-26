@@ -1,0 +1,13 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/co2_panel_c_api",
+    "crates/co2_panel_protocol",
+    "crates/co2_panel_ui",
+]
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+version = "0.1.0"
+

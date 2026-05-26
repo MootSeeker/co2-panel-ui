@@ -1,0 +1,14 @@
+[package]
+name = "co2_panel_c_api"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+co2_panel_protocol = { path = "../co2_panel_protocol" }
+libc = "0.2"
+serde_json = "1"
+
