@@ -188,10 +188,21 @@ fn draw_button_column(ui: &mut egui::Ui, state: &mut AppState) {
                 UnitSystem::Metric => "Metrisch",
                 UnitSystem::Imperial => "Imperial",
             };
-            let buzzer = if state.buzzer_enabled { "Buzzer an" } else { "Buzzer aus" };
-            ui.label(RichText::new(mode).font(FontId::proportional(15.0)).strong());
+            let buzzer = if state.buzzer_enabled {
+                "Buzzer an"
+            } else {
+                "Buzzer aus"
+            };
+            ui.label(
+                RichText::new(mode)
+                    .font(FontId::proportional(15.0))
+                    .strong(),
+            );
             ui.label(RichText::new(units).font(FontId::proportional(15.0)));
-            ui.label(RichText::new(format!("{}%", state.brightness_percent)).font(FontId::proportional(15.0)));
+            ui.label(
+                RichText::new(format!("{}%", state.brightness_percent))
+                    .font(FontId::proportional(15.0)),
+            );
             ui.label(RichText::new(buzzer).font(FontId::proportional(15.0)));
         });
     });
@@ -200,8 +211,12 @@ fn draw_button_column(ui: &mut egui::Ui, state: &mut AppState) {
 fn control_button(ui: &mut egui::Ui, label: &str) -> egui::Response {
     ui.add_sized(
         Vec2::new(72.0, 38.0),
-        egui::Button::new(RichText::new(label).font(FontId::proportional(15.0)).strong())
-            .rounding(4.0),
+        egui::Button::new(
+            RichText::new(label)
+                .font(FontId::proportional(15.0))
+                .strong(),
+        )
+        .rounding(4.0),
     )
 }
 
@@ -217,13 +232,7 @@ fn draw_measurements(ui: &mut egui::Ui, state: &AppState) {
                 "%",
                 &state.config.humidity,
             );
-            measurement_tile(
-                ui,
-                "CO2",
-                state.values.co2,
-                "ppm",
-                &state.config.co2,
-            );
+            measurement_tile(ui, "CO2", state.values.co2, "ppm", &state.config.co2);
             ui.end_row();
             measurement_tile(
                 ui,
@@ -339,10 +348,13 @@ fn bool_value(value: bool) -> f32 {
 }
 
 fn converted_temperature(state: &AppState) -> Option<f32> {
-    state.values.temperature.map(|value| match state.unit_system {
-        UnitSystem::Metric => value,
-        UnitSystem::Imperial => value * 9.0 / 5.0 + 32.0,
-    })
+    state
+        .values
+        .temperature
+        .map(|value| match state.unit_system {
+            UnitSystem::Metric => value,
+            UnitSystem::Imperial => value * 9.0 / 5.0 + 32.0,
+        })
 }
 
 fn converted_pressure(state: &AppState) -> Option<f32> {
@@ -413,8 +425,7 @@ fn handle_client(mut stream: UnixStream, state: Arc<Mutex<AppState>>) {
         let response = match co2_panel_protocol::encode_line(&response) {
             Ok(response) => response,
             Err(error) => {
-                format!(r#"{{"type":"error","message":"Cannot encode response: {error}"}}"#)
-                    + "\n"
+                format!(r#"{{"type":"error","message":"Cannot encode response: {error}"}}"#) + "\n"
             }
         };
 

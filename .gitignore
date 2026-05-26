@@ -1,7 +1,7 @@
 /target/
+/dist/
 *.o
 *.a
 *.so
 *.dylib
 .DS_Store
-
