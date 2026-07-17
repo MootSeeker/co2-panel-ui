@@ -17,6 +17,7 @@ use eframe::egui::{
 
 const BACKLIGHT_BRIGHTNESS_PATH: &str = "/sys/class/backlight/rpi_backlight/brightness";
 const BACKLIGHT_MAX_PATH: &str = "/sys/class/backlight/rpi_backlight/max_brightness";
+const STATUS_TEXT_COLOR: Color32 = Color32::from_rgb(75, 88, 91);
 
 fn main() -> eframe::Result<()> {
     let state = Arc::new(Mutex::new(AppState::default()));
@@ -49,12 +50,6 @@ struct Co2PanelApp {
     state: Arc<Mutex<AppState>>,
 }
 
-#[derive(Clone, Copy, Debug)]
-enum EditTarget {
-    Units,
-    Brightness,
-}
-
 #[derive(Debug)]
 struct AppState {
     config: PanelConfig,
@@ -63,7 +58,6 @@ struct AppState {
     unit_system: UnitSystem,
     buzzer_enabled: bool,
     brightness_percent: u8,
-    edit_target: EditTarget,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -84,7 +78,6 @@ impl Default for AppState {
             config,
             values: Measurements::default(),
             events: VecDeque::new(),
-            edit_target: EditTarget::Units,
         }
     }
 }
@@ -121,22 +114,22 @@ fn draw_header(ui: &mut egui::Ui, state: &mut AppState) {
     let date = now.format("%d.%b\n%Y").to_string().to_uppercase();
 
     egui::Frame::default()
-        .inner_margin(Margin::symmetric(14.0, 8.0))
+        .inner_margin(Margin::symmetric(14.0, 6.0))
         .show(ui, |ui| {
             ui.allocate_ui_with_layout(
-                Vec2::new(ui.available_width(), 96.0),
+                Vec2::new(ui.available_width(), 90.0),
                 Layout::left_to_right(Align::Center),
                 |ui| {
                     ui.label(
                         RichText::new(time)
-                            .font(FontId::proportional(86.0))
+                            .font(FontId::proportional(74.0))
                             .strong()
                             .color(Color32::from_rgb(12, 43, 132)),
                     );
-                    ui.add_space(14.0);
+                    ui.add_space(10.0);
                     ui.label(
                         RichText::new(date)
-                            .font(FontId::proportional(32.0))
+                            .font(FontId::proportional(28.0))
                             .strong()
                             .color(Color32::from_rgb(21, 44, 117)),
                     );
@@ -154,12 +147,7 @@ fn draw_button_column(ui: &mut egui::Ui, state: &mut AppState) {
     ui.vertical(|ui| {
         ui.horizontal(|ui| {
             if control_button(ui, "UNIT").clicked() {
-                state.edit_target = match state.edit_target {
-                    EditTarget::Units => EditTarget::Brightness,
-                    EditTarget::Brightness => EditTarget::Units,
-                };
-                let value = target_value(state);
-                push_event(state, EventKind::UnitPressed, value);
+                toggle_unit_system(state);
             }
             if control_button(ui, "BUZZER").clicked() {
                 state.buzzer_enabled = !state.buzzer_enabled;
@@ -168,22 +156,16 @@ fn draw_button_column(ui: &mut egui::Ui, state: &mut AppState) {
                 push_event(state, EventKind::BuzzerChanged, value);
             }
             if control_button(ui, "UP").clicked() {
-                adjust_selected_setting(state, 1);
-                let value = target_value(state);
-                push_event(state, EventKind::UpPressed, value);
+                let brightness = adjust_brightness(state, 1, EventKind::UpPressed);
+                apply_brightness(brightness);
             }
             if control_button(ui, "DOWN").clicked() {
-                adjust_selected_setting(state, -1);
-                let value = target_value(state);
-                push_event(state, EventKind::DownPressed, value);
+                let brightness = adjust_brightness(state, -1, EventKind::DownPressed);
+                apply_brightness(brightness);
             }
         });
-        ui.add_space(8.0);
+        ui.add_space(6.0);
         ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
-            let mode = match state.edit_target {
-                EditTarget::Units => "Einheiten",
-                EditTarget::Brightness => "Helligkeit",
-            };
             let units = match state.unit_system {
                 UnitSystem::Metric => "Metrisch",
                 UnitSystem::Imperial => "Imperial",
@@ -193,17 +175,17 @@ fn draw_button_column(ui: &mut egui::Ui, state: &mut AppState) {
             } else {
                 "Buzzer aus"
             };
-            ui.label(
-                RichText::new(mode)
-                    .font(FontId::proportional(15.0))
-                    .strong(),
-            );
-            ui.label(RichText::new(units).font(FontId::proportional(15.0)));
-            ui.label(
-                RichText::new(format!("{}%", state.brightness_percent))
-                    .font(FontId::proportional(15.0)),
-            );
-            ui.label(RichText::new(buzzer).font(FontId::proportional(15.0)));
+            for status in [
+                format!("Einheit: {units}"),
+                format!("Helligkeit: {} %", state.brightness_percent),
+                buzzer.to_string(),
+            ] {
+                ui.label(
+                    RichText::new(status)
+                        .font(FontId::proportional(13.0))
+                        .color(STATUS_TEXT_COLOR),
+                );
+            }
         });
     });
 }
@@ -267,32 +249,32 @@ fn measurement_tile(
     egui::Frame::default()
         .fill(fill)
         .stroke(Stroke::new(1.0, Color32::from_rgb(75, 88, 91)))
-        .inner_margin(Margin::symmetric(10.0, 10.0))
+        .inner_margin(Margin::symmetric(10.0, 6.0))
         .show(ui, |ui| {
             ui.allocate_ui_with_layout(
-                Vec2::new(378.0, 168.0),
+                Vec2::new(378.0, 147.0),
                 Layout::top_down(Align::Center),
                 |ui| {
-                    ui.add_space(12.0);
+                    ui.add_space(4.0);
                     let value_text = value
                         .map(|value| format!("{value:.1}"))
                         .unwrap_or_else(|| "--.-".to_string());
                     ui.label(
                         RichText::new(value_text)
-                            .font(FontId::proportional(56.0))
+                            .font(FontId::proportional(48.0))
                             .strong()
                             .color(Color32::from_rgb(21, 44, 117)),
                     );
                     ui.label(
                         RichText::new(unit)
-                            .font(FontId::proportional(22.0))
+                            .font(FontId::proportional(18.0))
                             .strong()
                             .color(Color32::from_rgb(21, 44, 117)),
                     );
                     ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
                         ui.label(
                             RichText::new(title)
-                                .font(FontId::proportional(28.0))
+                                .font(FontId::proportional(24.0))
                                 .strong()
                                 .color(Color32::from_rgb(54, 69, 132)),
                         );
@@ -302,33 +284,29 @@ fn measurement_tile(
         });
 }
 
-fn adjust_selected_setting(state: &mut AppState, direction: i32) {
-    match state.edit_target {
-        EditTarget::Units => {
-            state.unit_system = match state.unit_system {
-                UnitSystem::Metric => UnitSystem::Imperial,
-                UnitSystem::Imperial => UnitSystem::Metric,
-            };
-            let value = target_value(state);
-            push_event(state, EventKind::UnitSystemChanged, value);
-        }
-        EditTarget::Brightness => {
-            let brightness = state.brightness_percent as i32 + direction * 5;
-            state.brightness_percent = brightness.clamp(10, 100) as u8;
-            apply_brightness(state.brightness_percent);
-            let value = state.brightness_percent as f32;
-            push_event(state, EventKind::BrightnessChanged, value);
-        }
-    }
+fn toggle_unit_system(state: &mut AppState) {
+    state.unit_system = match state.unit_system {
+        UnitSystem::Metric => UnitSystem::Imperial,
+        UnitSystem::Imperial => UnitSystem::Metric,
+    };
+    let value = unit_value(state.unit_system);
+    push_event(state, EventKind::UnitPressed, value);
+    push_event(state, EventKind::UnitSystemChanged, value);
 }
 
-fn target_value(state: &AppState) -> f32 {
-    match state.edit_target {
-        EditTarget::Units => match state.unit_system {
-            UnitSystem::Metric => 0.0,
-            UnitSystem::Imperial => 1.0,
-        },
-        EditTarget::Brightness => state.brightness_percent as f32,
+fn adjust_brightness(state: &mut AppState, direction: i32, pressed_event: EventKind) -> u8 {
+    let brightness = state.brightness_percent as i32 + direction * 5;
+    state.brightness_percent = brightness.clamp(10, 100) as u8;
+    let value = state.brightness_percent as f32;
+    push_event(state, pressed_event, value);
+    push_event(state, EventKind::BrightnessChanged, value);
+    state.brightness_percent
+}
+
+fn unit_value(unit_system: UnitSystem) -> f32 {
+    match unit_system {
+        UnitSystem::Metric => 0.0,
+        UnitSystem::Imperial => 1.0,
     }
 }
 
@@ -502,4 +480,69 @@ fn write_raspberry_pi_backlight(percent: u8) -> Result<(), std::io::Error> {
         .unwrap_or(255);
     let brightness = ((max_brightness as f32) * (percent as f32 / 100.0)).round() as u32;
     fs::write(BACKLIGHT_BRIGHTNESS_PATH, brightness.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unit_button_toggles_units_and_queues_events_in_order() {
+        let mut state = AppState::default();
+
+        toggle_unit_system(&mut state);
+
+        assert!(matches!(state.unit_system, UnitSystem::Imperial));
+        assert_event(state.events.pop_front(), EventKind::UnitPressed, 1.0);
+        assert_event(state.events.pop_front(), EventKind::UnitSystemChanged, 1.0);
+
+        toggle_unit_system(&mut state);
+
+        assert!(matches!(state.unit_system, UnitSystem::Metric));
+        assert_event(state.events.pop_front(), EventKind::UnitPressed, 0.0);
+        assert_event(state.events.pop_front(), EventKind::UnitSystemChanged, 0.0);
+    }
+
+    #[test]
+    fn brightness_buttons_change_in_five_percent_steps_and_queue_events() {
+        let mut state = AppState::default();
+        state.brightness_percent = 80;
+
+        let brightness = adjust_brightness(&mut state, 1, EventKind::UpPressed);
+
+        assert_eq!(brightness, 85);
+        assert_event(state.events.pop_front(), EventKind::UpPressed, 85.0);
+        assert_event(state.events.pop_front(), EventKind::BrightnessChanged, 85.0);
+
+        let brightness = adjust_brightness(&mut state, -1, EventKind::DownPressed);
+
+        assert_eq!(brightness, 80);
+        assert_event(state.events.pop_front(), EventKind::DownPressed, 80.0);
+        assert_event(state.events.pop_front(), EventKind::BrightnessChanged, 80.0);
+    }
+
+    #[test]
+    fn brightness_buttons_are_clamped_to_safe_limits() {
+        let mut state = AppState::default();
+        state.brightness_percent = 100;
+
+        assert_eq!(adjust_brightness(&mut state, 1, EventKind::UpPressed), 100);
+
+        state.events.clear();
+        state.brightness_percent = 10;
+
+        assert_eq!(
+            adjust_brightness(&mut state, -1, EventKind::DownPressed),
+            10
+        );
+    }
+
+    fn assert_event(event: Option<PanelEvent>, expected_kind: EventKind, expected_value: f32) {
+        let event = event.expect("expected queued event");
+        assert_eq!(
+            std::mem::discriminant(&event.kind),
+            std::mem::discriminant(&expected_kind)
+        );
+        assert_eq!(event.value, expected_value);
+    }
 }
