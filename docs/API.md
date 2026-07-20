@@ -95,10 +95,9 @@ Die UI stellt folgende Ereignisse bereit:
 
 ## Buttons
 
-Die Bedienung im ersten Stand:
+Die Tasten bedienen die Einstellungen direkt:
 
-- `UNIT`: wechselt zwischen dem Einstellmodus `Einheiten` und `Helligkeit`.
-- `UP`/`DOWN` im Modus `Einheiten`: wechselt zwischen metrisch und imperial.
-- `UP`/`DOWN` im Modus `Helligkeit`: aendert die Displayhelligkeit in 5-Prozent-Schritten.
+- `UNIT`: wechselt direkt zwischen metrisch und imperial.
+- `UP`: erhoeht die Displayhelligkeit um 5 Prozentpunkte bis maximal 100 Prozent.
+- `DOWN`: reduziert die Displayhelligkeit um 5 Prozentpunkte bis minimal 10 Prozent.
 - `BUZZER`: schaltet nur den visuellen Buzzer-Zustand um. Es wird kein GPIO-Pin geschaltet.
-
