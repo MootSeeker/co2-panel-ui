@@ -81,6 +81,12 @@ Das Installationsskript baut das Projekt auf dem Raspberry Pi und installiert:
 
 ## Helligkeit
 
-Die UI versucht zuerst, die Helligkeit ueber `/sys/class/backlight/rpi_backlight/brightness` zu setzen. Falls das nicht moeglich ist, wird als Fallback `xrandr --output DSI-1 --brightness` verwendet.
+Die UI schreibt die Helligkeit ueber `/sys/class/backlight/10-0045/brightness` direkt auf das angeschlossene Display. Der Prozentwert wird anhand von `max_brightness` in den vom Display erwarteten Zahlenwert umgerechnet (bei einem Maximum von 255 entsprechen 50 % dem Wert 128).
 
-Je nach Raspberry Pi OS Konfiguration koennen fuer die direkte Backlight-Steuerung zusaetzliche Rechte noetig sein.
+Falls der gestartete Benutzer keine Schreibrechte auf die Backlight-Datei besitzt, verwendet die UI `sudo -n tee /sys/class/backlight/10-0045/brightness`. Dafuer muss auf dem Raspberry Pi eine passwortlose, auf genau diesen Befehl beschraenkte `sudo`-Regel eingerichtet werden, zum Beispiel mit `sudo visudo`:
+
+```sudoers
+<benutzer> ALL=(root) NOPASSWD: /usr/bin/tee /sys/class/backlight/10-0045/brightness
+```
+
+Ohne diese Berechtigung bleibt als Fallback die softwareseitige Anpassung mit `xrandr --output DSI-1 --brightness` aktiv.

@@ -3,7 +3,7 @@ use std::fs;
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -15,8 +15,8 @@ use eframe::egui::{
     self, Align, Color32, FontId, Layout, Margin, RichText, Stroke, Vec2, ViewportCommand,
 };
 
-const BACKLIGHT_BRIGHTNESS_PATH: &str = "/sys/class/backlight/rpi_backlight/brightness";
-const BACKLIGHT_MAX_PATH: &str = "/sys/class/backlight/rpi_backlight/max_brightness";
+const BACKLIGHT_BRIGHTNESS_PATH: &str = "/sys/class/backlight/10-0045/brightness";
+const BACKLIGHT_MAX_PATH: &str = "/sys/class/backlight/10-0045/max_brightness";
 const STATUS_TEXT_COLOR: Color32 = Color32::from_rgb(75, 88, 91);
 
 fn main() -> eframe::Result<()> {
@@ -479,7 +479,36 @@ fn write_raspberry_pi_backlight(percent: u8) -> Result<(), std::io::Error> {
         .parse()
         .unwrap_or(255);
     let brightness = ((max_brightness as f32) * (percent as f32 / 100.0)).round() as u32;
-    fs::write(BACKLIGHT_BRIGHTNESS_PATH, brightness.to_string())
+
+    match fs::write(BACKLIGHT_BRIGHTNESS_PATH, brightness.to_string()) {
+        Ok(()) => Ok(()),
+        Err(_) => write_backlight_with_sudo(brightness),
+    }
+}
+
+fn write_backlight_with_sudo(brightness: u32) -> Result<(), std::io::Error> {
+    let mut child = Command::new("sudo")
+        .args(["-n", "tee", BACKLIGHT_BRIGHTNESS_PATH])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()?;
+
+    child
+        .stdin
+        .take()
+        .expect("sudo tee stdin is piped")
+        .write_all(brightness.to_string().as_bytes())?;
+
+    let status = child.wait()?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            "sudo could not write the display backlight",
+        ))
+    }
 }
 
 #[cfg(test)]
