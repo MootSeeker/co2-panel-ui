@@ -211,15 +211,24 @@ fn draw_measurements(ui: &mut egui::Ui, state: &AppState) {
                 ui,
                 "FEUCHTIGKEIT",
                 state.values.humidity,
+                state.values.humidity,
                 "%",
                 &state.config.humidity,
             );
-            measurement_tile(ui, "CO2", state.values.co2, "ppm", &state.config.co2);
+            measurement_tile(
+                ui,
+                "CO2",
+                state.values.co2,
+                state.values.co2,
+                "ppm",
+                &state.config.co2,
+            );
             ui.end_row();
             measurement_tile(
                 ui,
                 "TEMPERATUR",
                 converted_temperature(state),
+                state.values.temperature,
                 temperature_unit(state.unit_system),
                 &state.config.temperature,
             );
@@ -227,6 +236,7 @@ fn draw_measurements(ui: &mut egui::Ui, state: &AppState) {
                 ui,
                 "UMGEBUNGSDRUCK",
                 converted_pressure(state),
+                state.values.pressure,
                 pressure_unit(state.unit_system),
                 &state.config.pressure,
             );
@@ -236,15 +246,12 @@ fn draw_measurements(ui: &mut egui::Ui, state: &AppState) {
 fn measurement_tile(
     ui: &mut egui::Ui,
     title: &str,
-    value: Option<f32>,
+    displayed_value: Option<f32>,
+    metric_value: Option<f32>,
     unit: &str,
     limits: &co2_panel_protocol::Limits,
 ) {
-    let fill = match value {
-        Some(value) if value >= limits.alarm => Color32::from_rgb(214, 66, 56),
-        Some(value) if value >= limits.warn => Color32::from_rgb(240, 201, 69),
-        _ => Color32::from_rgb(243, 246, 241),
-    };
+    let fill = measurement_fill(metric_value, limits);
 
     egui::Frame::default()
         .fill(fill)
@@ -256,7 +263,7 @@ fn measurement_tile(
                 Layout::top_down(Align::Center),
                 |ui| {
                     ui.add_space(4.0);
-                    let value_text = value
+                    let value_text = displayed_value
                         .map(|value| format!("{value:.1}"))
                         .unwrap_or_else(|| "--.-".to_string());
                     ui.label(
@@ -282,6 +289,14 @@ fn measurement_tile(
                 },
             );
         });
+}
+
+fn measurement_fill(metric_value: Option<f32>, limits: &co2_panel_protocol::Limits) -> Color32 {
+    match metric_value {
+        Some(value) if value >= limits.alarm => Color32::from_rgb(214, 66, 56),
+        Some(value) if value >= limits.warn => Color32::from_rgb(240, 201, 69),
+        _ => Color32::from_rgb(243, 246, 241),
+    }
 }
 
 fn toggle_unit_system(state: &mut AppState) {
@@ -563,6 +578,21 @@ mod tests {
         assert_eq!(
             adjust_brightness(&mut state, -1, EventKind::DownPressed),
             10
+        );
+    }
+
+    #[test]
+    fn alarm_color_uses_metric_value_when_displaying_imperial_units() {
+        let mut state = AppState::default();
+        state.unit_system = UnitSystem::Imperial;
+        state.values.temperature = Some(25.0);
+        state.config.temperature.warn = 28.0;
+        state.config.temperature.alarm = 35.0;
+
+        assert_eq!(converted_temperature(&state), Some(77.0));
+        assert_eq!(
+            measurement_fill(state.values.temperature, &state.config.temperature),
+            Color32::from_rgb(243, 246, 241)
         );
     }
 
