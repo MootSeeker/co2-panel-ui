@@ -64,6 +64,7 @@ Co2PanelConfig co2_panel_default_config(void);
 Co2Panel *co2_panel_create(const Co2PanelConfig *config);
 void co2_panel_destroy(Co2Panel *panel);
 
+Co2PanelStatus co2_panel_update_config(Co2Panel *panel, const Co2PanelConfig *config);
 Co2PanelStatus co2_panel_set_value(Co2Panel *panel, Co2PanelValueKind kind, float value);
 Co2PanelStatus co2_panel_get_value(Co2Panel *panel, Co2PanelValueKind kind, float *value);
 Co2PanelStatus co2_panel_poll_event(Co2Panel *panel, Co2PanelEvent *event);
@@ -74,4 +75,3 @@ const char *co2_panel_last_error(Co2Panel *panel);
 #endif
 
 #endif
-

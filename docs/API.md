@@ -59,6 +59,24 @@ config.co2.warn = 800.0f;
 config.co2.alarm = 1200.0f;
 ```
 
+Eine laufende UI kann dieselbe Konfiguration ohne Neustart erneut uebernehmen:
+
+```c
+config.unit_system = CO2_PANEL_UNIT_IMPERIAL;
+if (co2_panel_update_config(panel, &config) != CO2_PANEL_OK) {
+    fprintf(stderr, "Konfiguration fehlgeschlagen: %s\n", co2_panel_last_error(panel));
+}
+```
+
+`co2_panel_update_config()` ersetzt die gesamte Konfiguration. Einheiten, Helligkeit und
+Warn- beziehungsweise Alarmgrenzen werden sofort fuer die weitere Anzeige verwendet. Messwerte,
+Touch-Ereignisse und der Buzzer-Zustand bleiben erhalten. Messwerte und Grenzwerte werden immer in
+den metrischen Basiseinheiten Grad Celsius und hPa uebergeben, auch bei imperialer Anzeige.
+
+`socket_path` aendert die bereits bestehende Verbindung nicht. `app_name` und `fullscreen` werden
+zur Laufzeit derzeit nicht angewendet; `update_interval_ms` ist eine Empfehlung fuer das
+aufrufende Programm.
+
 Wichtige Felder:
 
 | Feld | Bedeutung |

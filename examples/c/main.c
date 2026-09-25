@@ -51,6 +51,15 @@ int main(void)
     }
 
     for (int i = 0; i < 120; i++) {
+        if (i == 30 || i == 60) {
+            config.unit_system = i == 30 ? CO2_PANEL_UNIT_IMPERIAL : CO2_PANEL_UNIT_METRIC;
+            if (co2_panel_update_config(panel, &config) != CO2_PANEL_OK) {
+                fprintf(stderr, "Konfiguration fehlgeschlagen: %s\n", co2_panel_last_error(panel));
+                co2_panel_destroy(panel);
+                return 1;
+            }
+        }
+
         float co2 = 620.0f + (float)(i * 9);
         float humidity = 45.0f + (float)(i % 10);
         float temperature = 22.0f + (float)(i % 8) * 0.2f;
@@ -72,4 +81,3 @@ int main(void)
     co2_panel_destroy(panel);
     return 0;
 }
-

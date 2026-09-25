@@ -143,6 +143,30 @@ pub extern "C" fn co2_panel_destroy(panel: *mut Co2Panel) {
 }
 
 #[no_mangle]
+pub extern "C" fn co2_panel_update_config(
+    panel: *mut Co2Panel,
+    config: *const Co2PanelConfig,
+) -> Co2PanelStatus {
+    with_panel(panel, |panel| {
+        if config.is_null() {
+            return set_error(panel, "Invalid config pointer");
+        }
+
+        // SAFETY: Null was checked above; the caller provides a pointer valid for this call.
+        let config = unsafe { &*config };
+        let config = match panel_config_from_c(config) {
+            Ok(config) => config,
+            Err(error) => return set_error(panel, error),
+        };
+
+        match send_config(panel, config) {
+            Ok(()) => Co2PanelStatus::Ok,
+            Err(error) => set_error(panel, error),
+        }
+    })
+}
+
+#[no_mangle]
 pub extern "C" fn co2_panel_set_value(
     panel: *mut Co2Panel,
     kind: Co2PanelValueKind,
@@ -242,13 +266,13 @@ fn create_panel(config: &Co2PanelConfig) -> Result<Co2Panel, String> {
         last_error: empty_c_string(),
     };
 
-    match send_message(
-        &mut panel,
-        &ClientMessage::Configure {
-            config: panel_config,
-        },
-    ) {
-        Ok(ServerMessage::Ok) => Ok(panel),
+    send_config(&mut panel, panel_config)?;
+    Ok(panel)
+}
+
+fn send_config(panel: &mut Co2Panel, config: PanelConfig) -> Result<(), String> {
+    match send_message(panel, &ClientMessage::Configure { config }) {
+        Ok(ServerMessage::Ok) => Ok(()),
         Ok(response) => Err(format!("Unexpected configure response: {response:?}")),
         Err(error) => Err(error),
     }
@@ -380,5 +404,69 @@ impl From<PanelEvent> for Co2PanelEvent {
             kind: event.kind.into(),
             value: event.value,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::os::unix::net::UnixStream;
+    use std::thread;
+
+    #[test]
+    fn update_config_sends_configure_on_existing_connection() {
+        let (client, mut server) = UnixStream::pair().expect("create socket pair");
+        let server_thread = thread::spawn(move || {
+            let reader_stream = server.try_clone().expect("clone server socket");
+            let mut reader = BufReader::new(reader_stream);
+            let mut line = String::new();
+            reader.read_line(&mut line).expect("read request");
+            let message: ClientMessage = serde_json::from_str(&line).expect("decode request");
+            match message {
+                ClientMessage::Configure { config } => {
+                    assert!(matches!(config.unit_system, UnitSystem::Imperial));
+                    assert_eq!(config.brightness_percent, 65);
+                }
+                other => panic!("expected configure message, got {other:?}"),
+            }
+            server
+                .write_all(b"{\"type\":\"ok\"}\n")
+                .expect("write response");
+        });
+
+        let panel = Box::into_raw(Box::new(Co2Panel {
+            stream: client,
+            last_error: empty_c_string(),
+        }));
+        let mut config = co2_panel_default_config();
+        config.unit_system = Co2PanelUnitSystem::Imperial;
+        config.brightness_percent = 65;
+
+        assert_eq!(
+            co2_panel_update_config(panel, &config) as i32,
+            Co2PanelStatus::Ok as i32
+        );
+        co2_panel_destroy(panel);
+        server_thread.join().expect("join server thread");
+    }
+
+    #[test]
+    fn update_config_rejects_null_config() {
+        let (client, _server) = UnixStream::pair().expect("create socket pair");
+        let panel = Box::into_raw(Box::new(Co2Panel {
+            stream: client,
+            last_error: empty_c_string(),
+        }));
+
+        assert_eq!(
+            co2_panel_update_config(panel, ptr::null()) as i32,
+            Co2PanelStatus::Error as i32
+        );
+        let error = unsafe { CStr::from_ptr(co2_panel_last_error(panel)) };
+        assert_eq!(
+            error.to_str().expect("valid error string"),
+            "Invalid config pointer"
+        );
+        co2_panel_destroy(panel);
     }
 }
